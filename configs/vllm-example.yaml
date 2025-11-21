@@ -1,0 +1,238 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-deployment
+  labels:
+    app: vllm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm
+  template:
+    metadata:
+      labels:
+        app: vllm
+    spec:
+      containers:
+      - name: vllm-server
+        image: vllm/vllm-openai:latest
+        ports:
+        - containerPort: 8000
+          name: api
+        env:
+        - name: HUGGING_FACE_HUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: vllm-secrets
+              key: hf-token
+              optional: true
+        args:
+        - --model=microsoft/DialoGPT-medium  # Small model for testing
+        - --host=0.0.0.0
+        - --port=8000
+        - --served-model-name=chat-model
+        - --max-model-len=2048
+        - --tensor-parallel-size=1
+        resources:
+          requests:
+            cpu: "2"
+            memory: "4Gi"
+          limits:
+            cpu: "4"
+            memory: "8Gi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      nodeSelector:
+        ai-inference: "true"
+      tolerations:
+      - key: "ai-inference"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-service
+  labels:
+    app: vllm
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    name: api
+  selector:
+    app: vllm
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-nodeport
+  labels:
+    app: vllm
+spec:
+  type: NodePort
+  ports:
+  - port: 8000
+    targetPort: 8000
+    nodePort: 30080
+    name: api
+  selector:
+    app: vllm
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vllm-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: vllm.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: vllm-service
+            port:
+              number: 8000
+
+---
+# Optional: ConfigMap for model configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vllm-config
+data:
+  model-config.json: |
+    {
+      "model_name": "microsoft/DialoGPT-medium",
+      "max_tokens": 2048,
+      "temperature": 0.7,
+      "top_p": 0.9
+    }
+
+---
+# Optional: Secret for HuggingFace token (create manually)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vllm-secrets
+type: Opaque
+data:
+  # Base64 encoded HuggingFace token (optional)
+  # hf-token: <your-base64-encoded-token>
+  hf-token: ""
+
+---
+# Horizontal Pod Autoscaler for scaling based on CPU/memory
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vllm-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: vllm-deployment
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# PersistentVolumeClaim for model storage (optional)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm-model-storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: standard
+
+---
+# Alternative deployment for larger models (commented out)
+# Uncomment and modify for larger models like Llama-2-7B
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: vllm-large-deployment
+#   labels:
+#     app: vllm-large
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: vllm-large
+#   template:
+#     metadata:
+#       labels:
+#         app: vllm-large
+#     spec:
+#       containers:
+#       - name: vllm-server
+#         image: vllm/vllm-openai:latest
+#         ports:
+#         - containerPort: 8000
+#           name: api
+#         args:
+#         - --model=meta-llama/Llama-2-7b-chat-hf
+#         - --host=0.0.0.0
+#         - --port=8000
+#         - --served-model-name=llama-2-7b
+#         - --max-model-len=4096
+#         - --tensor-parallel-size=1
+#         - --gpu-memory-utilization=0.9
+#         resources:
+#           requests:
+#             cpu: "4"
+#             memory: "16Gi"
+#           limits:
+#             cpu: "8"
+#             memory: "32Gi"
+#         volumeMounts:
+#         - name: model-storage
+#           mountPath: /root/.cache
+#       volumes:
+#       - name: model-storage
+#         persistentVolumeClaim:
+#           claimName: vllm-model-storage
+#       nodeSelector:
+#         ai-inference: "true"
