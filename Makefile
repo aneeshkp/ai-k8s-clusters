@@ -212,7 +212,20 @@ port-forward: ## Forward ports for local access
 .PHONY: check-deps
 check-deps: ## Check if required dependencies are installed
 	@echo "🔍 Checking dependencies..."
-	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker is required but not installed."; exit 1; }
+	@if command -v docker >/dev/null 2>&1; then \
+		echo "✅ Docker found"; \
+	elif command -v podman >/dev/null 2>&1; then \
+		echo "✅ Podman found (will use as Docker alternative)"; \
+		echo "💡 Setting up Podman compatibility..."; \
+		if [ ! -f /usr/bin/docker ] && [ ! -L /usr/bin/docker ]; then \
+			echo "💡 Consider running: sudo ln -s \$$(which podman) /usr/local/bin/docker"; \
+		fi; \
+	else \
+		echo "❌ Either Docker or Podman is required but neither is installed."; \
+		echo "   Install Docker: https://docs.docker.com/engine/install/"; \
+		echo "   Or install Podman: sudo dnf install podman (Fedora/RHEL) or sudo apt install podman-docker (Ubuntu)"; \
+		exit 1; \
+	fi
 	@command -v kubectl >/dev/null 2>&1 || { echo "❌ kubectl is required but not installed."; exit 1; }
 	@command -v kind >/dev/null 2>&1 || echo "⚠️  Kind not found. Run 'make install-kind' to install."
 	@command -v minikube >/dev/null 2>&1 || echo "⚠️  Minikube not found. Run 'make install-minikube' to install."
@@ -233,6 +246,34 @@ install-minikube: ## Install Minikube
 	@sudo install minikube-linux-amd64 /usr/local/bin/minikube
 	@rm -f minikube-linux-amd64
 	@echo "✅ Minikube installed successfully"
+
+.PHONY: setup-podman
+setup-podman: ## Set up Podman compatibility for Docker tools
+	@echo "🔧 Setting up Podman compatibility..."
+	@if command -v podman >/dev/null 2>&1; then \
+		echo "✅ Podman found"; \
+		if [ ! -f /usr/local/bin/docker ] && [ ! -L /usr/local/bin/docker ]; then \
+			echo "🔗 Creating docker symlink for compatibility..."; \
+			sudo ln -sf $$(which podman) /usr/local/bin/docker; \
+			echo "✅ Docker symlink created: /usr/local/bin/docker -> $$(which podman)"; \
+		else \
+			echo "✅ Docker symlink already exists"; \
+		fi; \
+		echo "🐳 Testing Podman socket compatibility..."; \
+		if systemctl --user is-active --quiet podman.socket; then \
+			echo "✅ Podman socket is running"; \
+		else \
+			echo "🚀 Starting Podman socket for Docker API compatibility..."; \
+			systemctl --user enable --now podman.socket; \
+			echo "✅ Podman socket started"; \
+		fi; \
+		echo "🎉 Podman setup complete! You can now use Docker-compatible tools."; \
+	else \
+		echo "❌ Podman not found. Install with:"; \
+		echo "   Fedora/RHEL: sudo dnf install podman"; \
+		echo "   Ubuntu: sudo apt install podman-docker"; \
+		exit 1; \
+	fi
 
 ## Model Size Specific Targets
 .PHONY: small-model-kind

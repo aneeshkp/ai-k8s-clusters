@@ -40,8 +40,30 @@ check_prerequisites() {
         exit 1
     fi
 
-    if ! docker info &> /dev/null; then
-        echo -e "${RED}❌ Docker is not running. Please start Docker first.${NC}"
+    # Check for Docker or Podman
+    if command -v docker &> /dev/null && docker info &> /dev/null 2>&1; then
+        echo -e "${GREEN}✅ Docker found and running${NC}"
+        CONTAINER_RUNTIME="docker"
+    elif command -v podman &> /dev/null; then
+        echo -e "${GREEN}✅ Podman found (using as Docker alternative)${NC}"
+        CONTAINER_RUNTIME="podman"
+        # For Kind with Podman, we need to ensure rootless mode is properly configured
+        if podman info &> /dev/null; then
+            echo -e "${GREEN}✅ Podman is accessible${NC}"
+            # Check if we need to set up docker alias for kind
+            if ! command -v docker &> /dev/null; then
+                echo -e "${YELLOW}💡 Kind expects 'docker' command. Consider creating alias:${NC}"
+                echo -e "${YELLOW}   alias docker=podman${NC}"
+                echo -e "${YELLOW}   Or: sudo ln -s \$(which podman) /usr/local/bin/docker${NC}"
+            fi
+        else
+            echo -e "${YELLOW}⚠️  Podman found but may need configuration. Trying to continue...${NC}"
+        fi
+    else
+        echo -e "${RED}❌ Neither Docker nor Podman is available or running.${NC}"
+        echo -e "${YELLOW}Please install and start one of:${NC}"
+        echo "- Docker: https://docs.docker.com/engine/install/"
+        echo "- Podman: sudo dnf install podman (Fedora/RHEL) or sudo apt install podman-docker (Ubuntu)"
         exit 1
     fi
 }

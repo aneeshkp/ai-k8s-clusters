@@ -53,8 +53,26 @@ check_prerequisites() {
         exit 1
     fi
 
-    if ! docker info &> /dev/null; then
-        echo -e "${RED}❌ Docker is not running. Please start Docker first.${NC}"
+    # Check for Docker or Podman
+    if command -v docker &> /dev/null && docker info &> /dev/null 2>&1; then
+        echo -e "${GREEN}✅ Docker found and running${NC}"
+        CONTAINER_RUNTIME="docker"
+    elif command -v podman &> /dev/null; then
+        echo -e "${GREEN}✅ Podman found (using as Docker alternative)${NC}"
+        CONTAINER_RUNTIME="podman"
+        # Check if podman machine is running (for macOS/Windows compatibility)
+        if podman machine list 2>/dev/null | grep -q "Currently running"; then
+            echo -e "${GREEN}✅ Podman machine is running${NC}"
+        elif podman info &> /dev/null; then
+            echo -e "${GREEN}✅ Podman is accessible${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Podman found but may need configuration. Trying to continue...${NC}"
+        fi
+    else
+        echo -e "${RED}❌ Neither Docker nor Podman is available or running.${NC}"
+        echo -e "${YELLOW}Please install and start one of:${NC}"
+        echo "- Docker: https://docs.docker.com/engine/install/"
+        echo "- Podman: sudo dnf install podman (Fedora/RHEL) or sudo apt install podman-docker (Ubuntu)"
         exit 1
     fi
 }
@@ -85,9 +103,10 @@ create_cluster() {
 
     # Start minikube with AI-optimized configuration
     echo -e "${GREEN}🏗️  Starting minikube cluster...${NC}"
+    echo -e "${BLUE}Using container runtime: ${CONTAINER_RUNTIME}${NC}"
     minikube start \
         --profile="${cluster_name}" \
-        --driver="${DEFAULT_DRIVER}" \
+        --driver="${CONTAINER_RUNTIME}" \
         --memory="${memory}" \
         --cpus="${cpus}" \
         --disk-size="${disk_size}" \
