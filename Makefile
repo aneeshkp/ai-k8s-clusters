@@ -487,7 +487,12 @@ install-llm-d-deps-user: ## Install llm-d dependencies to ~/.local/bin (no sudo 
 	echo "   ✅ Helm installed"; \
 	echo ""; \
 	\
-	echo "3️⃣ Installing Helmfile v1.1.3..."; \
+	echo "3️⃣ Installing Helm Diff Plugin v3.11.0..."; \
+	PATH=~/.local/bin:$$PATH ~/.local/bin/helm plugin install https://github.com/databus23/helm-diff --version v3.11.0; \
+	echo "   ✅ Helm diff plugin installed"; \
+	echo ""; \
+	\
+	echo "4️⃣ Installing Helmfile v1.1.3..."; \
 	curl -Lo /tmp/helmfile.tar.gz "https://github.com/helmfile/helmfile/releases/download/v1.1.3/helmfile_1.1.3_$${OS}_$${ARCH}.tar.gz"; \
 	cd /tmp && tar -zxf helmfile.tar.gz; \
 	mv helmfile ~/.local/bin/helmfile; \
@@ -495,7 +500,7 @@ install-llm-d-deps-user: ## Install llm-d dependencies to ~/.local/bin (no sudo 
 	echo "   ✅ Helmfile installed"; \
 	echo ""; \
 	\
-	echo "4️⃣ Installing Stern (log viewer)..."; \
+	echo "5️⃣ Installing Stern (log viewer)..."; \
 	STERN_VERSION=$$(curl -s https://api.github.com/repos/stern/stern/releases/latest | grep '"tag_name"' | cut -d'"' -f4); \
 	curl -Lo /tmp/stern.tar.gz "https://github.com/stern/stern/releases/download/$${STERN_VERSION}/stern_$${STERN_VERSION#v}_$${OS}_$${ARCH}.tar.gz"; \
 	cd /tmp && tar -zxf stern.tar.gz; \
