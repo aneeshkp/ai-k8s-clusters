@@ -29,9 +29,10 @@ help: ## Show this comprehensive help message
 	@echo '=================================='
 	@echo ''
 	@echo '📋 QUICK START (One-Command Complete Setup):'
-	@echo '  make small-complete     🤖 Small models (DialoGPT, DistilBERT) - 2 CPU, 4GB RAM'
-	@echo '  make medium-complete    🚀 Medium models (Llama-2-7B, Mistral-7B) - 8 CPU, 16GB RAM'
-	@echo '  make large-complete     ⚡ Large models (Llama-2-70B, GPT-4 scale) - 16 CPU, 100GB RAM'
+	@echo '  make small-complete     🤖 Small (0.6B-3.8B): Qwen3-0.6B, Llama-3.2-3B, Phi-3-mini'
+	@echo '  make medium-complete    🚀 Medium (8B-14B): Llama-3.1-8B, Qwen2.5-14B'
+	@echo '  make large-complete     ⚡ Large (32B-70B): Qwen3-32B, Llama-3.3-70B-FP8'
+	@echo '  make ultra-complete     🔥 Ultra (671B MoE): DeepSeek-R1 (requires 4x H100+)'
 	@echo ''
 	@echo '🎯 MODEL-SPECIFIC CLUSTER CREATION:'
 	@echo '  make small-model-minikube   Create Minikube cluster for small models (2 CPU, 4GB RAM, 20GB disk)'
@@ -40,11 +41,14 @@ help: ## Show this comprehensive help message
 	@echo '  make medium-model-kind      Create Kind cluster for medium models'
 	@echo '  make large-model-minikube   Create Minikube cluster for large models (16 CPU, 100GB RAM, 200GB disk)'
 	@echo '  make large-model-kind       Create Kind cluster for large models'
+	@echo '  make ultra-model-minikube   Create Minikube cluster for ultra models (32+ CPU, 256GB RAM, 500GB disk)'
+	@echo '  make ultra-model-kind       Create Kind cluster for ultra models (DeepSeek-R1 671B MoE)'
 	@echo ''
 	@echo '🤖 MODEL DEPLOYMENT (Requires existing cluster):'
 	@echo '  make deploy-small-model     Deploy DialoGPT (small model example)'
 	@echo '  make deploy-medium-model    Deploy Llama-2-7B (medium model)'
 	@echo '  make deploy-large-model     Deploy Llama-2-70B (large model)'
+	@echo '  make deploy-ultra-model     Deploy DeepSeek-R1 (671B MoE - requires massive resources)'
 	@echo ''
 	@echo '⚙️  TRADITIONAL CLUSTER OPERATIONS:'
 	@echo '  make kind-create            Create default Kind cluster (2 nodes)'
@@ -69,6 +73,7 @@ help: ## Show this comprehensive help message
 	@echo '  make clean-small            Clean up small model clusters'
 	@echo '  make clean-medium           Clean up medium model clusters'
 	@echo '  make clean-large            Clean up large model clusters'
+	@echo '  make clean-ultra            Clean up ultra model clusters (DeepSeek-R1)'
 	@echo '  make clean-all              Destroy all clusters (Kind and Minikube)'
 	@echo '  make remove-vllm-example    Remove example vLLM service'
 	@echo ''
@@ -77,10 +82,27 @@ help: ## Show this comprehensive help message
 	@echo '  make quick-kind             Quick start with Kind cluster'
 	@echo '  make quick-minikube         Quick start with Minikube cluster'
 	@echo ''
-	@echo '💡 RESOURCE RECOMMENDATIONS:'
-	@echo '  Small models (2-7B):    2 CPU, 4GB RAM, 20GB disk   - Testing, lightweight models'
-	@echo '  Medium models (7B-13B): 8 CPU, 16GB RAM, 100GB disk - Development, standard models'
-	@echo '  Large models (70B+):    16 CPU, 100GB RAM, 200GB disk - Production, enterprise models'
+	@echo '💡 MODEL-SPECIFIC RESOURCE RECOMMENDATIONS:'
+	@echo ''
+	@echo '  🤖 SMALL (0.6B-3.8B params):'
+	@echo '    • Qwen3-0.6B, Llama-3.2-3B, Phi-3-mini'
+	@echo '    • Requirements: 2-4 CPU, 4-8GB RAM, 20GB disk'
+	@echo '    • Use: make small-model-minikube'
+	@echo ''
+	@echo '  🚀 MEDIUM (8B-14B params):'
+	@echo '    • Llama-3.1-8B, Qwen2.5-14B, DeepSeek-R1-Distill'
+	@echo '    • Requirements: 8-12 CPU, 16-32GB RAM, 100GB disk'
+	@echo '    • Use: make medium-model-minikube'
+	@echo ''
+	@echo '  ⚡ LARGE (32B-70B params):'
+	@echo '    • Qwen3-32B, Llama-3.3-70B-FP8'
+	@echo '    • Requirements: 16-32 CPU, 64-128GB RAM, 200GB disk'
+	@echo '    • Use: make large-model-minikube or ultra-model-minikube'
+	@echo ''
+	@echo '  🔥 ULTRA (671B MoE - DeepSeek-R1):'
+	@echo '    • Requires: 32+ CPU, 256GB+ RAM, 500GB+ disk'
+	@echo '    • Use: make ultra-model-minikube'
+	@echo '    • Note: May need cloud instance with 4x H100+'
 	@echo ''
 	@echo '🔧 ENVIRONMENT VARIABLES:'
 	@echo '  MEMORY_SIZE=16g             Override memory allocation for Minikube'
@@ -113,9 +135,10 @@ help-quick: ## Show just the most common commands
 	@echo '================================='
 	@echo ''
 	@echo 'Most Common:'
-	@echo '  make small-complete     🤖 Complete small model setup'
-	@echo '  make medium-complete    🚀 Complete medium model setup'
-	@echo '  make large-complete     ⚡ Complete large model setup'
+	@echo '  make small-complete     🤖 Small models (0.6B-3.8B)'
+	@echo '  make medium-complete    🚀 Medium models (8B-14B)'
+	@echo '  make large-complete     ⚡ Large models (32B-70B)'
+	@echo '  make ultra-complete     🔥 Ultra models (671B MoE)'
 	@echo '  make status             📊 Show all cluster status'
 	@echo '  make clean-all          🧹 Remove all clusters'
 	@echo ''
@@ -326,6 +349,24 @@ large-model-minikube: check-deps ## Create Minikube cluster for large models (16
 	@MINIKUBE_CLUSTER_NAME=ai-large-minikube $(MAKE) setup-namespace
 	@echo "✅ Large model cluster ready! Resources: 16 CPU, 100GB RAM, 200GB disk"
 
+.PHONY: ultra-model-kind
+ultra-model-kind: check-deps ## Create Kind cluster for ultra models (DeepSeek-R1 671B MoE)
+	@echo "🔥 Creating Kind cluster for ULTRA models (671B MoE)"
+	@echo "💡 Suitable for: DeepSeek-R1 (671B MoE), massive foundation models"
+	@echo "⚠️  WARNING: Kind clusters share host resources. Ultra models need cloud instances with 4x H100+"
+	@KIND_CLUSTER_NAME=ai-ultra-kind $(MAKE) kind-create
+	@KIND_CLUSTER_NAME=ai-ultra-kind $(MAKE) setup-namespace
+	@echo "✅ Ultra model cluster ready! Resources: Kind cluster (requires massive host)"
+
+.PHONY: ultra-model-minikube
+ultra-model-minikube: check-deps ## Create Minikube cluster for ultra models (32+ CPU, 256GB RAM, 500GB disk)
+	@echo "🔥 Creating Minikube cluster for ULTRA models (671B MoE)"
+	@echo "💡 Suitable for: DeepSeek-R1 (671B MoE), massive foundation models"
+	@echo "⚠️  WARNING: This requires massive cloud resources (4x H100+ recommended)!"
+	@MINIKUBE_CLUSTER_NAME=ai-ultra-minikube MEMORY_SIZE=256g CPUS=32 DISK_SIZE=500g $(MAKE) minikube-create
+	@MINIKUBE_CLUSTER_NAME=ai-ultra-minikube $(MAKE) setup-namespace
+	@echo "✅ Ultra model cluster ready! Resources: 32 CPU, 256GB RAM, 500GB disk"
+
 ## Quick Model Deployment Targets
 .PHONY: deploy-small-model
 deploy-small-model: ## Deploy example small model (requires small model cluster)
@@ -348,6 +389,15 @@ deploy-large-model: ## Deploy large model configuration
 	@sed 's/microsoft\/DialoGPT-medium/meta-llama\/Llama-2-70b-chat-hf/g; s/2048/8192/g; s/tensor-parallel-size=1/tensor-parallel-size=2/g; s/cpu: "2"/cpu: "8"/g; s/memory: "4Gi"/memory: "32Gi"/g; s/cpu: "4"/cpu: "16"/g; s/memory: "8Gi"/memory: "64Gi"/g' configs/vllm-example.yaml | kubectl apply -f - -n ai-inference
 	@echo "✅ Large model deployed! Access with: make port-forward"
 
+.PHONY: deploy-ultra-model
+deploy-ultra-model: ## Deploy ultra model configuration (DeepSeek-R1 671B MoE)
+	@echo "🔥 Deploying ULTRA model configuration (DeepSeek-R1 671B MoE)..."
+	@echo "⚠️  WARNING: This requires massive resources (4x H100+ recommended)!"
+	@kubectl create namespace ai-inference --dry-run=client -o yaml | kubectl apply -f -
+	@sed 's/microsoft\/DialoGPT-medium/deepseek-ai\/DeepSeek-R1/g; s/2048/16384/g; s/tensor-parallel-size=1/tensor-parallel-size=8/g; s/cpu: "2"/cpu: "32"/g; s/memory: "4Gi"/memory: "128Gi"/g; s/cpu: "4"/cpu: "64"/g; s/memory: "8Gi"/memory: "256Gi"/g' configs/vllm-example.yaml | kubectl apply -f - -n ai-inference
+	@echo "✅ Ultra model deployed! Access with: make port-forward"
+	@echo "⚠️  WARNING: Model download may take hours and require terabytes of storage!"
+
 ## Complete Model-Specific Workflows
 .PHONY: small-complete
 small-complete: small-model-minikube deploy-small-model ## Complete setup for small models (cluster + deployment)
@@ -367,6 +417,14 @@ large-complete: large-model-minikube deploy-large-model ## Complete setup for la
 	@echo "🌐 Run 'make port-forward' to access the API at http://localhost:8000"
 	@echo "⚠️  WARNING: First startup may take 30+ minutes to download Llama-2-70B model"
 	@echo "💡 Monitor with: kubectl logs -f deployment/vllm-deployment -n ai-inference"
+
+.PHONY: ultra-complete
+ultra-complete: ultra-model-minikube deploy-ultra-model ## Complete setup for ultra models (cluster + deployment)
+	@echo "🎉 Complete ultra model environment ready!"
+	@echo "🌐 Run 'make port-forward' to access the API at http://localhost:8000"
+	@echo "⚠️  WARNING: First startup may take hours to download DeepSeek-R1 (671B MoE)"
+	@echo "💡 Monitor with: kubectl logs -f deployment/vllm-deployment -n ai-inference"
+	@echo "🔥 This setup requires massive cloud resources (4x H100+ recommended)"
 
 ## Cleanup by Model Size
 .PHONY: clean-small
@@ -389,6 +447,13 @@ clean-large: ## Clean up large model clusters
 	@kind delete cluster --name ai-large-kind 2>/dev/null || true
 	@minikube delete --profile ai-large-minikube 2>/dev/null || true
 	@echo "✅ Large model clusters cleaned"
+
+.PHONY: clean-ultra
+clean-ultra: ## Clean up ultra model clusters
+	@echo "🧹 Cleaning up ultra model clusters..."
+	@kind delete cluster --name ai-ultra-kind 2>/dev/null || true
+	@minikube delete --profile ai-ultra-minikube 2>/dev/null || true
+	@echo "✅ Ultra model clusters cleaned"
 
 ## Quick Start
 .PHONY: quick-kind
