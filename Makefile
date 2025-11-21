@@ -249,7 +249,7 @@ check-deps: ## Check if required dependencies are installed
 		echo "   Or install Podman: sudo dnf install podman (Fedora/RHEL) or sudo apt install podman-docker (Ubuntu)"; \
 		exit 1; \
 	fi
-	@command -v kubectl >/dev/null 2>&1 || { echo "❌ kubectl is required but not installed."; exit 1; }
+	@command -v kubectl >/dev/null 2>&1 || { echo "❌ kubectl is required but not installed."; echo "💡 Install now: make install-kubectl"; echo "📦 Or manually: sudo dnf install kubernetes-client"; exit 1; }
 	@command -v kind >/dev/null 2>&1 || echo "⚠️  Kind not found. Run 'make install-kind' to install."
 	@command -v minikube >/dev/null 2>&1 || echo "⚠️  Minikube not found. Run 'make install-minikube' to install."
 	@echo "✅ Dependency check complete"
