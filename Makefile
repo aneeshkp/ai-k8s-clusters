@@ -195,17 +195,17 @@ kind-status: ## Show Kind cluster status
 .PHONY: minikube-create
 minikube-create: ## Create Minikube cluster optimized for AI inference
 	@echo "🚀 Creating Minikube cluster: $(MINIKUBE_CLUSTER_NAME)"
-	@./scripts/minikube-cluster.sh create $(MINIKUBE_CLUSTER_NAME) $(MEMORY_SIZE) $(CPUS) $(DISK_SIZE)
+	@PATH=~/.local/bin:$$PATH ./scripts/minikube-cluster.sh create $(MINIKUBE_CLUSTER_NAME) $(MEMORY_SIZE) $(CPUS) $(DISK_SIZE)
 
 .PHONY: minikube-destroy
 minikube-destroy: ## Destroy Minikube cluster
 	@echo "🗑️  Destroying Minikube cluster: $(MINIKUBE_CLUSTER_NAME)"
-	@./scripts/minikube-cluster.sh destroy $(MINIKUBE_CLUSTER_NAME)
+	@PATH=~/.local/bin:$$PATH ./scripts/minikube-cluster.sh destroy $(MINIKUBE_CLUSTER_NAME)
 
 .PHONY: minikube-status
 minikube-status: ## Show Minikube cluster status
 	@echo "📊 Minikube cluster status:"
-	@./scripts/minikube-cluster.sh status $(MINIKUBE_CLUSTER_NAME)
+	@PATH=~/.local/bin:$$PATH ./scripts/minikube-cluster.sh status $(MINIKUBE_CLUSTER_NAME)
 
 ## Common Cluster Operations
 .PHONY: status
@@ -751,8 +751,8 @@ small-model-kind: check-deps ## Create Kind cluster for small models (DialoGPT, 
 small-model-minikube: check-deps ## Create Minikube cluster for small models (2 CPU, 4GB RAM, 20GB disk)
 	@echo "🤖 Creating Minikube cluster for SMALL models (2-7B params)"
 	@echo "💡 Suitable for: DialoGPT, DistilBERT, small GPT models"
-	@MINIKUBE_CLUSTER_NAME=ai-small-minikube MEMORY_SIZE=4g CPUS=2 DISK_SIZE=20g $(MAKE) minikube-create
-	@MINIKUBE_CLUSTER_NAME=ai-small-minikube $(MAKE) setup-namespace
+	@PATH=~/.local/bin:$$PATH MINIKUBE_CLUSTER_NAME=ai-small-minikube MEMORY_SIZE=4g CPUS=2 DISK_SIZE=20g $(MAKE) minikube-create
+	@PATH=~/.local/bin:$$PATH MINIKUBE_CLUSTER_NAME=ai-small-minikube $(MAKE) setup-namespace
 	@echo "✅ Small model cluster ready! Resources: 2 CPU, 4GB RAM, 20GB disk"
 
 .PHONY: medium-model-kind
@@ -767,8 +767,8 @@ medium-model-kind: check-deps ## Create Kind cluster for medium models (Llama-7B
 medium-model-minikube: check-deps ## Create Minikube cluster for medium models (8 CPU, 16GB RAM, 100GB disk)
 	@echo "🚀 Creating Minikube cluster for MEDIUM models (7B-13B params)"
 	@echo "💡 Suitable for: Llama-2-7B, Llama-2-13B, Code Llama, Mistral-7B"
-	@MINIKUBE_CLUSTER_NAME=ai-medium-minikube MEMORY_SIZE=16g CPUS=8 DISK_SIZE=100g $(MAKE) minikube-create
-	@MINIKUBE_CLUSTER_NAME=ai-medium-minikube $(MAKE) setup-namespace
+	@PATH=~/.local/bin:$$PATH MINIKUBE_CLUSTER_NAME=ai-medium-minikube MEMORY_SIZE=16g CPUS=8 DISK_SIZE=100g $(MAKE) minikube-create
+	@PATH=~/.local/bin:$$PATH MINIKUBE_CLUSTER_NAME=ai-medium-minikube $(MAKE) setup-namespace
 	@echo "✅ Medium model cluster ready! Resources: 8 CPU, 16GB RAM, 100GB disk"
 
 .PHONY: large-model-kind
@@ -785,8 +785,8 @@ large-model-minikube: check-deps ## Create Minikube cluster for large models (16
 	@echo "⚡ Creating Minikube cluster for LARGE models (70B+ params)"
 	@echo "💡 Suitable for: Llama-2-70B, GPT-4 scale models, large foundation models"
 	@echo "⚠️  WARNING: This requires significant host resources!"
-	@MINIKUBE_CLUSTER_NAME=ai-large-minikube MEMORY_SIZE=100g CPUS=16 DISK_SIZE=200g $(MAKE) minikube-create
-	@MINIKUBE_CLUSTER_NAME=ai-large-minikube $(MAKE) setup-namespace
+	@PATH=~/.local/bin:$$PATH MINIKUBE_CLUSTER_NAME=ai-large-minikube MEMORY_SIZE=100g CPUS=16 DISK_SIZE=200g $(MAKE) minikube-create
+	@PATH=~/.local/bin:$$PATH MINIKUBE_CLUSTER_NAME=ai-large-minikube $(MAKE) setup-namespace
 	@echo "✅ Large model cluster ready! Resources: 16 CPU, 100GB RAM, 200GB disk"
 
 .PHONY: ultra-model-kind
@@ -803,8 +803,8 @@ ultra-model-minikube: check-deps ## Create Minikube cluster for ultra models (32
 	@echo "🔥 Creating Minikube cluster for ULTRA models (671B MoE)"
 	@echo "💡 Suitable for: DeepSeek-R1 (671B MoE), massive foundation models"
 	@echo "⚠️  WARNING: This requires massive cloud resources (4x H100+ recommended)!"
-	@MINIKUBE_CLUSTER_NAME=ai-ultra-minikube MEMORY_SIZE=256g CPUS=32 DISK_SIZE=500g $(MAKE) minikube-create
-	@MINIKUBE_CLUSTER_NAME=ai-ultra-minikube $(MAKE) setup-namespace
+	@PATH=~/.local/bin:$$PATH MINIKUBE_CLUSTER_NAME=ai-ultra-minikube MEMORY_SIZE=256g CPUS=32 DISK_SIZE=500g $(MAKE) minikube-create
+	@PATH=~/.local/bin:$$PATH MINIKUBE_CLUSTER_NAME=ai-ultra-minikube $(MAKE) setup-namespace
 	@echo "✅ Ultra model cluster ready! Resources: 32 CPU, 256GB RAM, 500GB disk"
 
 ## Quick Model Deployment Targets

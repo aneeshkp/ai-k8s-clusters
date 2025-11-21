@@ -48,8 +48,8 @@ usage() {
 check_prerequisites() {
     if ! command -v minikube &> /dev/null; then
         echo -e "${RED}❌ minikube is not installed. Install with:${NC}"
-        echo "curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64"
-        echo "sudo install minikube-linux-amd64 /usr/local/bin/minikube"
+        echo "make install-minikube-user  # For user-space installation (no sudo)"
+        echo "Or manually: curl -Lo ~/.local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x ~/.local/bin/minikube"
         exit 1
     fi
 
@@ -60,6 +60,10 @@ check_prerequisites() {
     elif command -v podman &> /dev/null; then
         echo -e "${GREEN}✅ Podman found (using as Docker alternative)${NC}"
         CONTAINER_RUNTIME="podman"
+
+        # Configure minikube for rootless podman if sudo is not available
+        configure_rootless_minikube
+
         # Check if podman machine is running (for macOS/Windows compatibility)
         if podman machine list 2>/dev/null | grep -q "Currently running"; then
             echo -e "${GREEN}✅ Podman machine is running${NC}"
@@ -74,6 +78,21 @@ check_prerequisites() {
         echo "- Docker: https://docs.docker.com/engine/install/"
         echo "- Podman: sudo dnf install podman (Fedora/RHEL) or sudo apt install podman-docker (Ubuntu)"
         exit 1
+    fi
+}
+
+configure_rootless_minikube() {
+    # Check if sudo is available without prompting
+    if ! sudo -n true 2>/dev/null; then
+        echo -e "${YELLOW}🔧 Configuring minikube for rootless podman (no sudo access)${NC}"
+
+        # Configure minikube for rootless operation
+        minikube config set rootless true
+        minikube config set driver podman
+
+        echo -e "${GREEN}✅ Minikube configured for rootless operation${NC}"
+    else
+        echo -e "${GREEN}✅ Sudo access available, using standard podman configuration${NC}"
     fi
 }
 
