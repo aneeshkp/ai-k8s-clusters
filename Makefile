@@ -71,7 +71,7 @@ help: ## Show this comprehensive help message
 	@echo '  make install-kubectl-user   Install kubectl to ~/.local/bin [NO SUDO REQUIRED]'
 	@echo '  make install-kind-user      Install Kind to ~/.local/bin [NO SUDO REQUIRED]'
 	@echo '  make install-minikube-user  Install Minikube to ~/.local/bin [NO SUDO REQUIRED]'
-	@echo '  make install-llm-d-deps-user Install llm-d tools to ~/.local/bin [NO SUDO REQUIRED]'
+	@echo '  make install-llm-d-deps     Install llm-d tools to ~/.local/bin [NO SUDO REQUIRED]'
 	@echo '  make check-user-deps        Check user-installed tools in ~/.local/bin'
 	@echo '  make add-to-path            Add ~/.local/bin to PATH permanently'
 	@echo ''
@@ -83,7 +83,7 @@ help: ## Show this comprehensive help message
 	@echo '  make install-kubectl        Install kubectl (v1.34+)'
 	@echo '  make install-kind           Install Kind'
 	@echo '  make install-minikube       Install Minikube'
-	@echo '  make install-llm-d-deps     Install llm-d client dependencies'
+	@echo '  make install-llm-d-deps-system Install llm-d dependencies to /usr/local/bin [requires sudo]'
 	@echo '  make check-llm-d-deps       Verify llm-d dependencies installation'
 	@echo '  make setup-namespace        Create ai-inference namespace'
 	@echo ''
@@ -364,8 +364,11 @@ install-minikube-user: ## Install Minikube to ~/.local/bin (no sudo required)
 	@~/.local/bin/minikube version 2>/dev/null || echo "Add ~/.local/bin to PATH first"
 
 .PHONY: install-llm-d-deps
-install-llm-d-deps: ## Install all llm-d client setup dependencies (helm, helmfile, yq, stern)
-	@echo "📦 Installing llm-d client setup dependencies..."
+install-llm-d-deps: install-llm-d-deps-user ## Install llm-d dependencies to ~/.local/bin (no sudo required)
+
+.PHONY: install-llm-d-deps-system
+install-llm-d-deps-system: ## Install llm-d dependencies to /usr/local/bin (requires sudo)
+	@echo "📦 Installing llm-d client setup dependencies to /usr/local/bin..."
 	@echo "🔍 Detecting system..."
 	@OS=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
 	ARCH=$$(uname -m); \
@@ -440,7 +443,8 @@ install-llm-d-deps: ## Install all llm-d client setup dependencies (helm, helmfi
 		echo "   ✅ Stern found"; \
 	else \
 		echo "   📥 Installing Stern..."; \
-		curl -Lo /tmp/stern.tar.gz "https://github.com/stern/stern/releases/latest/download/stern_*_$${OS}_$${ARCH}.tar.gz"; \
+		STERN_VERSION=$$(curl -s https://api.github.com/repos/stern/stern/releases/latest | grep '"tag_name"' | cut -d'"' -f4); \
+		curl -Lo /tmp/stern.tar.gz "https://github.com/stern/stern/releases/download/$${STERN_VERSION}/stern_$${STERN_VERSION#v}_$${OS}_$${ARCH}.tar.gz"; \
 		cd /tmp && tar -zxf stern.tar.gz; \
 		chmod +x stern; \
 		sudo mv stern /usr/local/bin/stern; \
@@ -492,7 +496,8 @@ install-llm-d-deps-user: ## Install llm-d dependencies to ~/.local/bin (no sudo 
 	echo ""; \
 	\
 	echo "4️⃣ Installing Stern (log viewer)..."; \
-	curl -Lo /tmp/stern.tar.gz "$$(curl -s https://api.github.com/repos/stern/stern/releases/latest | grep 'browser_download_url.*linux_$${ARCH}\.tar\.gz' | cut -d'"' -f4)"; \
+	STERN_VERSION=$$(curl -s https://api.github.com/repos/stern/stern/releases/latest | grep '"tag_name"' | cut -d'"' -f4); \
+	curl -Lo /tmp/stern.tar.gz "https://github.com/stern/stern/releases/download/$${STERN_VERSION}/stern_$${STERN_VERSION#v}_$${OS}_$${ARCH}.tar.gz"; \
 	cd /tmp && tar -zxf stern.tar.gz; \
 	mv stern ~/.local/bin/stern; \
 	rm -f /tmp/stern.tar.gz; \
