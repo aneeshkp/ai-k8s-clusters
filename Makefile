@@ -65,8 +65,11 @@ help: ## Show this comprehensive help message
 	@echo ''
 	@echo '📦 SETUP & DEPENDENCIES:'
 	@echo '  make check-deps             Check if required dependencies are installed'
+	@echo '  make install-kubectl        Install kubectl (v1.34+)'
 	@echo '  make install-kind           Install Kind'
 	@echo '  make install-minikube       Install Minikube'
+	@echo '  make install-llm-d-deps     Install llm-d client dependencies (helm, helmfile, yq, stern)'
+	@echo '  make check-llm-d-deps       Verify llm-d dependencies installation'
 	@echo '  make setup-namespace        Create ai-inference namespace'
 	@echo ''
 	@echo '🧹 CLEANUP OPTIONS:'
@@ -141,6 +144,10 @@ help-quick: ## Show just the most common commands
 	@echo '  make ultra-complete     🔥 Ultra models (671B MoE)'
 	@echo '  make status             📊 Show all cluster status'
 	@echo '  make clean-all          🧹 Remove all clusters'
+	@echo ''
+	@echo 'Setup:'
+	@echo '  make install-kubectl    📦 Install kubectl first'
+	@echo '  make install-llm-d-deps 🛠️ Install llm-d client tools'
 	@echo ''
 	@echo 'Access:'
 	@echo '  make port-forward       🌐 Access API at localhost:8000'
@@ -269,6 +276,182 @@ install-minikube: ## Install Minikube
 	@sudo install minikube-linux-amd64 /usr/local/bin/minikube
 	@rm -f minikube-linux-amd64
 	@echo "✅ Minikube installed successfully"
+	@echo "🔍 Verifying version..."
+	@minikube version
+
+.PHONY: install-llm-d-deps
+install-llm-d-deps: ## Install all llm-d client setup dependencies (helm, helmfile, yq, stern)
+	@echo "📦 Installing llm-d client setup dependencies..."
+	@echo "🔍 Detecting system..."
+	@OS=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
+	ARCH=$$(uname -m); \
+	case $$ARCH in \
+		x86_64) ARCH="amd64" ;; \
+		aarch64|arm64) ARCH="arm64" ;; \
+		*) echo "❌ Unsupported architecture: $$ARCH"; exit 1 ;; \
+	esac; \
+	echo "📋 System: $$OS-$$ARCH"; \
+	echo ""; \
+	\
+	echo "1️⃣ Checking kubectl..."; \
+	if command -v kubectl >/dev/null 2>&1; then \
+		echo "   ✅ kubectl found"; \
+	else \
+		echo "   📥 Installing kubectl..."; \
+		$(MAKE) install-kubectl; \
+	fi; \
+	echo ""; \
+	\
+	echo "2️⃣ Installing yq (YAML processor)..."; \
+	if command -v yq >/dev/null 2>&1; then \
+		echo "   ✅ yq found"; \
+	else \
+		echo "   📥 Installing yq..."; \
+		curl -Lo /tmp/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_$${OS}_$${ARCH}"; \
+		chmod +x /tmp/yq; \
+		sudo mv /tmp/yq /usr/local/bin/yq; \
+		echo "   ✅ yq installed"; \
+	fi; \
+	echo ""; \
+	\
+	echo "3️⃣ Installing Helm v3.17.3..."; \
+	if command -v helm >/dev/null 2>&1; then \
+		echo "   ✅ Helm found"; \
+	else \
+		echo "   📥 Installing Helm..."; \
+		curl -Lo /tmp/helm.tar.gz "https://get.helm.sh/helm-v3.17.3-$${OS}-$${ARCH}.tar.gz"; \
+		cd /tmp && tar -zxf helm.tar.gz; \
+		sudo mv $${OS}-$${ARCH}/helm /usr/local/bin/helm; \
+		rm -rf /tmp/helm.tar.gz /tmp/$${OS}-$${ARCH}; \
+		echo "   ✅ Helm installed"; \
+	fi; \
+	echo ""; \
+	\
+	echo "4️⃣ Installing Helmfile v1.1.3..."; \
+	if command -v helmfile >/dev/null 2>&1; then \
+		echo "   ✅ Helmfile found"; \
+	else \
+		echo "   📥 Installing Helmfile..."; \
+		curl -Lo /tmp/helmfile.tar.gz "https://github.com/helmfile/helmfile/releases/download/v1.1.3/helmfile_1.1.3_$${OS}_$${ARCH}.tar.gz"; \
+		cd /tmp && tar -zxf helmfile.tar.gz; \
+		chmod +x helmfile; \
+		sudo mv helmfile /usr/local/bin/helmfile; \
+		rm -f /tmp/helmfile.tar.gz; \
+		echo "   ✅ Helmfile installed"; \
+	fi; \
+	echo ""; \
+	\
+	echo "5️⃣ Installing Helm Diff Plugin v3.11.0..."; \
+	if helm plugin list 2>/dev/null | grep -q diff; then \
+		echo "   ✅ Helm diff plugin found"; \
+	else \
+		echo "   📥 Installing Helm diff plugin..."; \
+		helm plugin install https://github.com/databus23/helm-diff --version v3.11.0; \
+		echo "   ✅ Helm diff plugin installed"; \
+	fi; \
+	echo ""; \
+	\
+	echo "6️⃣ Installing Stern (log viewer)..."; \
+	if command -v stern >/dev/null 2>&1; then \
+		echo "   ✅ Stern found"; \
+	else \
+		echo "   📥 Installing Stern..."; \
+		curl -Lo /tmp/stern.tar.gz "https://github.com/stern/stern/releases/latest/download/stern_*_$${OS}_$${ARCH}.tar.gz"; \
+		cd /tmp && tar -zxf stern.tar.gz; \
+		chmod +x stern; \
+		sudo mv stern /usr/local/bin/stern; \
+		rm -f /tmp/stern.tar.gz; \
+		echo "   ✅ Stern installed"; \
+	fi; \
+	echo ""; \
+	\
+	echo "🎉 All llm-d dependencies installed!"; \
+	echo ""; \
+	echo "📋 Verify with: make check-llm-d-deps"; \
+	echo "💡 Clone llm-d: git clone https://github.com/llm-d/llm-d.git"
+
+.PHONY: check-llm-d-deps
+check-llm-d-deps: ## Verify all llm-d dependencies are properly installed
+	@echo "🔍 Checking llm-d client setup dependencies..."
+	@echo ""
+	@ERROR_COUNT=0; \
+	\
+	echo "📋 Required Tools:"; \
+	if command -v kubectl >/dev/null 2>&1; then \
+		VERSION=$$(kubectl version --client 2>/dev/null | grep -o 'v[0-9]*\.[0-9]*\.[0-9]*' | head -1); \
+		echo "   ✅ kubectl $$VERSION"; \
+	else \
+		echo "   ❌ kubectl not found"; \
+		ERROR_COUNT=$$((ERROR_COUNT + 1)); \
+	fi; \
+	\
+	if command -v yq >/dev/null 2>&1; then \
+		VERSION=$$(yq --version 2>/dev/null | head -1); \
+		echo "   ✅ yq $$VERSION"; \
+	else \
+		echo "   ❌ yq not found"; \
+		ERROR_COUNT=$$((ERROR_COUNT + 1)); \
+	fi; \
+	\
+	if command -v helm >/dev/null 2>&1; then \
+		VERSION=$$(helm version --short 2>/dev/null); \
+		echo "   ✅ helm $$VERSION"; \
+	else \
+		echo "   ❌ helm not found"; \
+		ERROR_COUNT=$$((ERROR_COUNT + 1)); \
+	fi; \
+	\
+	if command -v helmfile >/dev/null 2>&1; then \
+		VERSION=$$(helmfile version 2>/dev/null | head -1); \
+		echo "   ✅ helmfile $$VERSION"; \
+	else \
+		echo "   ❌ helmfile not found"; \
+		ERROR_COUNT=$$((ERROR_COUNT + 1)); \
+	fi; \
+	\
+	if helm plugin list 2>/dev/null | grep -q diff; then \
+		echo "   ✅ helm-diff plugin installed"; \
+	else \
+		echo "   ❌ helm-diff plugin not found"; \
+		ERROR_COUNT=$$((ERROR_COUNT + 1)); \
+	fi; \
+	\
+	if command -v stern >/dev/null 2>&1; then \
+		VERSION=$$(stern --version 2>/dev/null); \
+		echo "   ✅ stern $$VERSION"; \
+	else \
+		echo "   ❌ stern not found"; \
+		ERROR_COUNT=$$((ERROR_COUNT + 1)); \
+	fi; \
+	\
+	if command -v git >/dev/null 2>&1; then \
+		VERSION=$$(git --version 2>/dev/null); \
+		echo "   ✅ git $$VERSION"; \
+	else \
+		echo "   ❌ git not found"; \
+		ERROR_COUNT=$$((ERROR_COUNT + 1)); \
+	fi; \
+	\
+	echo ""; \
+	echo "🐳 Container Runtime:"; \
+	if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then \
+		echo "   ✅ docker running"; \
+	elif command -v podman >/dev/null 2>&1; then \
+		echo "   ✅ podman available"; \
+	else \
+		echo "   ❌ no container runtime found"; \
+		ERROR_COUNT=$$((ERROR_COUNT + 1)); \
+	fi; \
+	\
+	echo ""; \
+	if [ $$ERROR_COUNT -eq 0 ]; then \
+		echo "✅ All llm-d dependencies ready!"; \
+		echo "🚀 Clone: git clone https://github.com/llm-d/llm-d.git"; \
+	else \
+		echo "❌ Found $$ERROR_COUNT missing dependencies"; \
+		echo "💡 Run: make install-llm-d-deps"; \
+		exit 1; \
+	fi
 
 .PHONY: setup-podman
 setup-podman: ## Set up Podman compatibility for Docker tools
