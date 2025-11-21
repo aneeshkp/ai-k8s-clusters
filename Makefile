@@ -511,11 +511,21 @@ install-llm-d-deps-user: ## Install llm-d dependencies to ~/.local/bin (no sudo 
 	\
 	echo "6️⃣ Installing Kustomize (Kubernetes config management)..."; \
 	KUSTOMIZE_VERSION=$$(curl -s https://api.github.com/repos/kubernetes-sigs/kustomize/releases/latest | grep '"tag_name"' | grep 'kustomize' | cut -d'"' -f4); \
-	curl -Lo /tmp/kustomize.tar.gz "https://github.com/kubernetes-sigs/kustomize/releases/download/$${KUSTOMIZE_VERSION}/kustomize_$${KUSTOMIZE_VERSION#kustomize/v}_$${OS}_$${ARCH}.tar.gz"; \
-	cd /tmp && tar -zxf kustomize.tar.gz; \
-	mv kustomize ~/.local/bin/kustomize; \
-	rm -f /tmp/kustomize.tar.gz; \
-	echo "   ✅ Kustomize installed"; \
+	KUSTOMIZE_VER=$${KUSTOMIZE_VERSION#kustomize/}; \
+	echo "   📦 Downloading kustomize $$KUSTOMIZE_VER..."; \
+	if curl -Lo /tmp/kustomize.tar.gz "https://github.com/kubernetes-sigs/kustomize/releases/download/$${KUSTOMIZE_VERSION}/kustomize_$${KUSTOMIZE_VER}_$${OS}_$${ARCH}.tar.gz"; then \
+		cd /tmp && tar -zxf kustomize.tar.gz; \
+		if [ -f kustomize ]; then \
+			mv kustomize ~/.local/bin/kustomize; \
+			chmod +x ~/.local/bin/kustomize; \
+			rm -f /tmp/kustomize.tar.gz; \
+			echo "   ✅ Kustomize installed"; \
+		else \
+			echo "   ❌ Kustomize extraction failed"; \
+		fi; \
+	else \
+		echo "   ❌ Kustomize download failed"; \
+	fi; \
 	echo ""; \
 	\
 	echo "🎉 All tools installed to ~/.local/bin!"; \
@@ -683,6 +693,14 @@ check-llm-d-deps: ## Verify all llm-d dependencies are properly installed
 		echo "   ✅ stern $$VERSION"; \
 	else \
 		echo "   ❌ stern not found"; \
+		ERROR_COUNT=$$((ERROR_COUNT + 1)); \
+	fi; \
+	\
+	if command -v kustomize >/dev/null 2>&1; then \
+		VERSION=$$(kustomize version 2>/dev/null | head -1); \
+		echo "   ✅ kustomize $$VERSION"; \
+	else \
+		echo "   ❌ kustomize not found"; \
 		ERROR_COUNT=$$((ERROR_COUNT + 1)); \
 	fi; \
 	\
