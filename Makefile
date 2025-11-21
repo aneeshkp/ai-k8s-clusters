@@ -509,6 +509,15 @@ install-llm-d-deps-user: ## Install llm-d dependencies to ~/.local/bin (no sudo 
 	echo "   ✅ Stern installed"; \
 	echo ""; \
 	\
+	echo "6️⃣ Installing Kustomize (Kubernetes config management)..."; \
+	KUSTOMIZE_VERSION=$$(curl -s https://api.github.com/repos/kubernetes-sigs/kustomize/releases/latest | grep '"tag_name"' | grep 'kustomize' | cut -d'"' -f4); \
+	curl -Lo /tmp/kustomize.tar.gz "https://github.com/kubernetes-sigs/kustomize/releases/download/$${KUSTOMIZE_VERSION}/kustomize_$${KUSTOMIZE_VERSION#kustomize/v}_$${OS}_$${ARCH}.tar.gz"; \
+	cd /tmp && tar -zxf kustomize.tar.gz; \
+	mv kustomize ~/.local/bin/kustomize; \
+	rm -f /tmp/kustomize.tar.gz; \
+	echo "   ✅ Kustomize installed"; \
+	echo ""; \
+	\
 	echo "🎉 All tools installed to ~/.local/bin!"; \
 	echo ""; \
 	echo "💡 Add to PATH: export PATH=~/.local/bin:\$$PATH"; \
