@@ -1,0 +1,47 @@
+# Large binary files and downloads
+minikube-linux-amd64
+kind
+kubectl
+
+# Temporary files
+*.tmp
+*.temp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Configuration files with secrets
+*secret*
+*credential*
+*.key
+*.pem
+
+# Kubernetes config (may contain sensitive data)
+kubeconfig
+*.kubeconfig
+
+# Build artifacts
+*.tar.gz
+*.zip
+*.deb
+*.rpm
+
+# Temporary downloads
+downloads/
+tmp/
