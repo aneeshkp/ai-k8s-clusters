@@ -65,10 +65,25 @@ help: ## Show this comprehensive help message
 	@echo ''
 	@echo '📦 SETUP & DEPENDENCIES:'
 	@echo '  make check-deps             Check if required dependencies are installed'
+	@echo '  make install-all            Install all missing dependencies (kubectl, kind, minikube) [requires sudo]'
+	@echo '  make install-all-user       Install all dependencies to ~/.local/bin [NO SUDO REQUIRED]'
+	@echo '  make install-kubectl        Install kubectl (v1.34+) [requires sudo]'
+	@echo '  make install-kubectl-user   Install kubectl to ~/.local/bin [NO SUDO REQUIRED]'
+	@echo '  make install-kind-user      Install Kind to ~/.local/bin [NO SUDO REQUIRED]'
+	@echo '  make install-minikube-user  Install Minikube to ~/.local/bin [NO SUDO REQUIRED]'
+	@echo '  make install-llm-d-deps-user Install llm-d tools to ~/.local/bin [NO SUDO REQUIRED]'
+	@echo '  make check-user-deps        Check user-installed tools in ~/.local/bin'
+	@echo '  make add-to-path            Add ~/.local/bin to PATH permanently'
+	@echo ''
+	@echo '🐍 PYTHON VIRTUAL ENVIRONMENT:'
+	@echo '  make setup-python-venv      Create Python venv for AI tools'
+	@echo '  make install-python-ai-tools Install PyTorch, Transformers, JupyterLab, etc.'
+	@echo ''
+	@echo '📦 LEGACY (requires sudo):'
 	@echo '  make install-kubectl        Install kubectl (v1.34+)'
 	@echo '  make install-kind           Install Kind'
 	@echo '  make install-minikube       Install Minikube'
-	@echo '  make install-llm-d-deps     Install llm-d client dependencies (helm, helmfile, yq, stern)'
+	@echo '  make install-llm-d-deps     Install llm-d client dependencies'
 	@echo '  make check-llm-d-deps       Verify llm-d dependencies installation'
 	@echo '  make setup-namespace        Create ai-inference namespace'
 	@echo ''
@@ -145,9 +160,11 @@ help-quick: ## Show just the most common commands
 	@echo '  make status             📊 Show all cluster status'
 	@echo '  make clean-all          🧹 Remove all clusters'
 	@echo ''
-	@echo 'Setup:'
-	@echo '  make install-kubectl    📦 Install kubectl first'
-	@echo '  make install-llm-d-deps 🛠️ Install llm-d client tools'
+	@echo 'Setup (NO SUDO REQUIRED):'
+	@echo '  make install-all-user   📦 Install all tools to ~/.local/bin'
+	@echo '  make install-kubectl-user 🔧 Install kubectl only'
+	@echo '  make add-to-path        🛤️ Add tools to PATH'
+	@echo '  make setup-python-venv  🐍 Python virtual environment'
 	@echo ''
 	@echo 'Access:'
 	@echo '  make port-forward       🌐 Access API at localhost:8000'
@@ -261,6 +278,51 @@ check-deps: ## Check if required dependencies are installed
 	@command -v minikube >/dev/null 2>&1 || echo "⚠️  Minikube not found. Run 'make install-minikube' to install."
 	@echo "✅ Dependency check complete"
 
+.PHONY: install-kubectl
+install-kubectl: ## Install kubectl (v1.34+)
+	@echo "📥 Installing kubectl (ensuring v1.34 or above)..."
+	@LATEST_VERSION=$$(curl -L -s https://dl.k8s.io/release/stable.txt); \
+	MAJOR_MINOR=$$(echo $$LATEST_VERSION | cut -d. -f1-2 | sed 's/v//'); \
+	if [ "$$(printf '%s\n' "1.34" "$$MAJOR_MINOR" | sort -V | head -n1)" = "1.34" ]; then \
+		echo "✅ Latest stable version $$LATEST_VERSION meets requirement (≥1.34)"; \
+		VERSION=$$LATEST_VERSION; \
+	else \
+		echo "⚠️  Latest stable version $$LATEST_VERSION is below 1.34, using v1.34.0"; \
+		VERSION="v1.34.0"; \
+	fi; \
+	echo "📦 Downloading kubectl $$VERSION..."; \
+	curl -LO "https://dl.k8s.io/release/$$VERSION/bin/linux/amd64/kubectl"; \
+	curl -LO "https://dl.k8s.io/release/$$VERSION/bin/linux/amd64/kubectl.sha256"
+	@echo "🔍 Verifying kubectl checksum..."
+	@echo "$$(cat kubectl.sha256)  kubectl" | sha256sum --check
+	@chmod +x kubectl
+	@sudo mv kubectl /usr/local/bin/
+	@rm -f kubectl.sha256
+	@echo "✅ kubectl installed successfully"
+	@echo "🔍 Verifying version..."
+	@kubectl version --client --output=yaml | grep gitVersion || kubectl version --client
+
+.PHONY: install-kubectl-user
+install-kubectl-user: ## Install kubectl (v1.34+) to ~/.local/bin (no sudo required)
+	@echo "📥 Installing kubectl to ~/.local/bin (no sudo required)..."
+	@mkdir -p ~/.local/bin
+	@LATEST_VERSION=$$(curl -L -s https://dl.k8s.io/release/stable.txt); \
+	MAJOR_MINOR=$$(echo $$LATEST_VERSION | cut -d. -f1-2 | sed 's/v//'); \
+	if [ "$$(printf '%s\n' "1.34" "$$MAJOR_MINOR" | sort -V | head -n1)" = "1.34" ]; then \
+		echo "✅ Latest stable version $$LATEST_VERSION meets requirement (≥1.34)"; \
+		VERSION=$$LATEST_VERSION; \
+	else \
+		echo "⚠️  Latest stable version $$LATEST_VERSION is below 1.34, using v1.34.0"; \
+		VERSION="v1.34.0"; \
+	fi; \
+	echo "📦 Downloading kubectl $$VERSION..."; \
+	curl -Lo ~/.local/bin/kubectl "https://dl.k8s.io/release/$$VERSION/bin/linux/amd64/kubectl"; \
+	chmod +x ~/.local/bin/kubectl
+	@echo "✅ kubectl installed to ~/.local/bin/"
+	@echo "💡 Add ~/.local/bin to PATH: export PATH=~/.local/bin:\$$PATH"
+	@echo "🔍 Verifying version..."
+	@~/.local/bin/kubectl version --client 2>/dev/null || echo "Add ~/.local/bin to PATH first"
+
 .PHONY: install-kind
 install-kind: ## Install Kind
 	@echo "📥 Installing Kind..."
@@ -268,6 +330,17 @@ install-kind: ## Install Kind
 	@chmod +x ./kind
 	@sudo mv ./kind /usr/local/bin/kind
 	@echo "✅ Kind installed successfully"
+
+.PHONY: install-kind-user
+install-kind-user: ## Install Kind to ~/.local/bin (no sudo required)
+	@echo "📥 Installing Kind to ~/.local/bin (no sudo required)..."
+	@mkdir -p ~/.local/bin
+	@curl -Lo ~/.local/bin/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+	@chmod +x ~/.local/bin/kind
+	@echo "✅ Kind installed to ~/.local/bin/"
+	@echo "💡 Add ~/.local/bin to PATH: export PATH=~/.local/bin:\$$PATH"
+	@echo "🔍 Verifying version..."
+	@~/.local/bin/kind version 2>/dev/null || echo "Add ~/.local/bin to PATH first"
 
 .PHONY: install-minikube
 install-minikube: ## Install Minikube
@@ -278,6 +351,17 @@ install-minikube: ## Install Minikube
 	@echo "✅ Minikube installed successfully"
 	@echo "🔍 Verifying version..."
 	@minikube version
+
+.PHONY: install-minikube-user
+install-minikube-user: ## Install Minikube to ~/.local/bin (no sudo required)
+	@echo "📥 Installing Minikube to ~/.local/bin (no sudo required)..."
+	@mkdir -p ~/.local/bin
+	@curl -Lo ~/.local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+	@chmod +x ~/.local/bin/minikube
+	@echo "✅ Minikube installed to ~/.local/bin/"
+	@echo "💡 Add ~/.local/bin to PATH: export PATH=~/.local/bin:\$$PATH"
+	@echo "🔍 Verifying version..."
+	@~/.local/bin/minikube version 2>/dev/null || echo "Add ~/.local/bin to PATH first"
 
 .PHONY: install-llm-d-deps
 install-llm-d-deps: ## Install all llm-d client setup dependencies (helm, helmfile, yq, stern)
@@ -370,6 +454,165 @@ install-llm-d-deps: ## Install all llm-d client setup dependencies (helm, helmfi
 	echo "📋 Verify with: make check-llm-d-deps"; \
 	echo "💡 Clone llm-d: git clone https://github.com/llm-d/llm-d.git"
 
+.PHONY: install-llm-d-deps-user
+install-llm-d-deps-user: ## Install llm-d dependencies to ~/.local/bin (no sudo required)
+	@echo "📦 Installing llm-d client setup dependencies to ~/.local/bin..."
+	@mkdir -p ~/.local/bin
+	@echo "🔍 Detecting system..."
+	@OS=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
+	ARCH=$$(uname -m); \
+	case $$ARCH in \
+		x86_64) ARCH="amd64" ;; \
+		aarch64|arm64) ARCH="arm64" ;; \
+		*) echo "❌ Unsupported architecture: $$ARCH"; exit 1 ;; \
+	esac; \
+	echo "📋 System: $$OS-$$ARCH"; \
+	echo ""; \
+	\
+	echo "1️⃣ Installing yq (YAML processor)..."; \
+	curl -Lo ~/.local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_$${OS}_$${ARCH}"; \
+	chmod +x ~/.local/bin/yq; \
+	echo "   ✅ yq installed"; \
+	echo ""; \
+	\
+	echo "2️⃣ Installing Helm v3.17.3..."; \
+	curl -Lo /tmp/helm.tar.gz "https://get.helm.sh/helm-v3.17.3-$${OS}-$${ARCH}.tar.gz"; \
+	cd /tmp && tar -zxf helm.tar.gz; \
+	mv $${OS}-$${ARCH}/helm ~/.local/bin/helm; \
+	rm -rf /tmp/helm.tar.gz /tmp/$${OS}-$${ARCH}; \
+	echo "   ✅ Helm installed"; \
+	echo ""; \
+	\
+	echo "3️⃣ Installing Helmfile v1.1.3..."; \
+	curl -Lo /tmp/helmfile.tar.gz "https://github.com/helmfile/helmfile/releases/download/v1.1.3/helmfile_1.1.3_$${OS}_$${ARCH}.tar.gz"; \
+	cd /tmp && tar -zxf helmfile.tar.gz; \
+	mv helmfile ~/.local/bin/helmfile; \
+	rm -f /tmp/helmfile.tar.gz; \
+	echo "   ✅ Helmfile installed"; \
+	echo ""; \
+	\
+	echo "4️⃣ Installing Stern (log viewer)..."; \
+	curl -Lo /tmp/stern.tar.gz "$$(curl -s https://api.github.com/repos/stern/stern/releases/latest | grep 'browser_download_url.*linux_$${ARCH}\.tar\.gz' | cut -d'"' -f4)"; \
+	cd /tmp && tar -zxf stern.tar.gz; \
+	mv stern ~/.local/bin/stern; \
+	rm -f /tmp/stern.tar.gz; \
+	echo "   ✅ Stern installed"; \
+	echo ""; \
+	\
+	echo "🎉 All tools installed to ~/.local/bin!"; \
+	echo ""; \
+	echo "💡 Add to PATH: export PATH=~/.local/bin:\$$PATH"; \
+	echo "📋 Add to ~/.bashrc: echo 'export PATH=~/.local/bin:\$$PATH' >> ~/.bashrc"
+
+.PHONY: setup-python-venv
+setup-python-venv: ## Create Python virtual environment for AI tools
+	@echo "🐍 Setting up Python virtual environment for AI tools..."
+	@python3 -m venv ~/.local/venv/ai-tools
+	@echo "✅ Virtual environment created at ~/.local/venv/ai-tools"
+	@echo ""
+	@echo "💡 Activate with: source ~/.local/venv/ai-tools/bin/activate"
+	@echo "📦 Install AI tools with: make install-python-ai-tools"
+
+.PHONY: install-python-ai-tools
+install-python-ai-tools: ## Install Python-based AI tools in virtual environment
+	@echo "🐍 Installing Python-based AI tools..."
+	@if [ ! -d ~/.local/venv/ai-tools ]; then \
+		echo "Creating virtual environment first..."; \
+		$(MAKE) setup-python-venv; \
+	fi
+	@source ~/.local/venv/ai-tools/bin/activate && \
+	echo "📦 Installing useful AI/ML tools..." && \
+	pip install --upgrade pip && \
+	pip install \
+		jupyterlab \
+		torch \
+		transformers \
+		accelerate \
+		datasets \
+		wandb \
+		tensorboard \
+		mlflow \
+		huggingface-hub \
+		gradio \
+		streamlit \
+		fastapi \
+		uvicorn
+	@echo ""
+	@echo "✅ Python AI tools installed!"
+	@echo ""
+	@echo "🚀 Activate environment: source ~/.local/venv/ai-tools/bin/activate"
+	@echo "📝 Start Jupyter: jupyter lab"
+	@echo "🤗 Login to HuggingFace: huggingface-cli login"
+
+.PHONY: install-all-user
+install-all-user: ## Install all dependencies to ~/.local/bin (no sudo required)
+	@echo "🔧 Installing all dependencies to ~/.local/bin (no sudo required)..."
+	@$(MAKE) install-kubectl-user
+	@$(MAKE) install-kind-user
+	@$(MAKE) install-minikube-user
+	@$(MAKE) install-llm-d-deps-user
+	@echo ""
+	@echo "🎉 All tools installed to ~/.local/bin!"
+	@echo ""
+	@echo "💡 Add to PATH (run once):"
+	@echo "   export PATH=~/.local/bin:\$$PATH"
+	@echo "   echo 'export PATH=~/.local/bin:\$$PATH' >> ~/.bashrc"
+	@echo ""
+	@echo "🔄 Reload shell: source ~/.bashrc"
+	@echo "📋 Verify: make check-user-deps"
+
+.PHONY: check-user-deps
+check-user-deps: ## Check user-installed dependencies in ~/.local/bin
+	@echo "🔍 Checking user-installed dependencies..."
+	@echo ""
+	@if [ -f ~/.local/bin/kubectl ]; then \
+		echo "   ✅ kubectl: $$(~/.local/bin/kubectl version --client --short 2>/dev/null || echo 'installed')"; \
+	else \
+		echo "   ❌ kubectl not found in ~/.local/bin"; \
+	fi
+	@if [ -f ~/.local/bin/kind ]; then \
+		echo "   ✅ kind: $$(~/.local/bin/kind version 2>/dev/null || echo 'installed')"; \
+	else \
+		echo "   ❌ kind not found in ~/.local/bin"; \
+	fi
+	@if [ -f ~/.local/bin/minikube ]; then \
+		echo "   ✅ minikube: $$(~/.local/bin/minikube version --short 2>/dev/null || echo 'installed')"; \
+	else \
+		echo "   ❌ minikube not found in ~/.local/bin"; \
+	fi
+	@if [ -f ~/.local/bin/helm ]; then \
+		echo "   ✅ helm: $$(~/.local/bin/helm version --short 2>/dev/null || echo 'installed')"; \
+	else \
+		echo "   ❌ helm not found in ~/.local/bin"; \
+	fi
+	@if [ -f ~/.local/bin/yq ]; then \
+		echo "   ✅ yq: $$(~/.local/bin/yq --version 2>/dev/null || echo 'installed')"; \
+	else \
+		echo "   ❌ yq not found in ~/.local/bin"; \
+	fi
+	@if [ -f ~/.local/bin/stern ]; then \
+		echo "   ✅ stern: $$(~/.local/bin/stern --version 2>/dev/null || echo 'installed')"; \
+	else \
+		echo "   ❌ stern not found in ~/.local/bin"; \
+	fi
+	@echo ""
+	@if command -v kubectl >/dev/null 2>&1; then \
+		echo "💡 Tools are in PATH and ready to use!"; \
+	else \
+		echo "⚠️  Add ~/.local/bin to PATH: export PATH=~/.local/bin:\$$PATH"; \
+	fi
+
+.PHONY: add-to-path
+add-to-path: ## Add ~/.local/bin to PATH permanently
+	@echo "🔧 Adding ~/.local/bin to PATH..."
+	@if ! grep -q 'export PATH=.*\.local/bin' ~/.bashrc; then \
+		echo 'export PATH=~/.local/bin:$$PATH' >> ~/.bashrc; \
+		echo "✅ Added to ~/.bashrc"; \
+	else \
+		echo "✅ Already in ~/.bashrc"; \
+	fi
+	@echo "🔄 Run: source ~/.bashrc (or restart terminal)"
+
 .PHONY: check-llm-d-deps
 check-llm-d-deps: ## Verify all llm-d dependencies are properly installed
 	@echo "🔍 Checking llm-d client setup dependencies..."
@@ -452,6 +695,15 @@ check-llm-d-deps: ## Verify all llm-d dependencies are properly installed
 		echo "💡 Run: make install-llm-d-deps"; \
 		exit 1; \
 	fi
+
+.PHONY: install-all
+install-all: ## Install all missing dependencies (kubectl, kind, minikube)
+	@echo "🔧 Installing all missing dependencies..."
+	@command -v kubectl >/dev/null 2>&1 || $(MAKE) install-kubectl
+	@command -v kind >/dev/null 2>&1 || $(MAKE) install-kind
+	@command -v minikube >/dev/null 2>&1 || $(MAKE) install-minikube
+	@echo "🎉 All dependencies installation complete!"
+	@echo "Run 'make check-deps' to verify installation"
 
 .PHONY: setup-podman
 setup-podman: ## Set up Podman compatibility for Docker tools
